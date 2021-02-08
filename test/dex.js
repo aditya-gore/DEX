@@ -79,4 +79,38 @@ contract("Dex", (accounts) => {
       "Token does not exist!"
     );
   });
+  // Test withdraw()---Happy Path
+  it("Should withdraw tokens", async () => {
+    const amount = web3.utils.toWei("100");
+
+    await dex.deposit(amount, DAI, { from: trader1 });
+
+    await dex.withdraw(amount, DAI, { from: trader1 });
+
+    const [balanceDex, balanceDai] = await Promise.all([
+      dex.traderBalances(trader1, DAI),
+      dai.balanceOf(trader1),
+    ]);
+
+    assert(balanceDex.isZero());
+    assert(balanceDai.toString() === web3.utils.toWei("1000"));
+  });
+  // Test withdraw()---Unhappy Path
+  it("Should NOT withdraw tokens if token does not exist", async () => {
+    await expectRevert(
+      dex.withdraw(
+        web3.utils.toWei("100"),
+        web3.utils.fromAscii("Token-does-not-exist"),
+        { from: trader1 }
+      ),
+      "Token does not exist!"
+    );
+  });
+  it("Should NOT withdraw tokens if balance is too low", async () => {
+    await dex.deposit(web3.utils.toWei("100"), DAI, { from: trader1 });
+    await expectRevert(
+      dex.withdraw(web3.utils.toWei("1000"), DAI, { from: trader1 }),
+      "Balance too low!"
+    );
+  });
 });
