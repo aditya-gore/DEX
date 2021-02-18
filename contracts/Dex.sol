@@ -181,7 +181,7 @@ contract Dex {
         if (side == Side.SELL) {
             require(
                 traderBalances[msg.sender][ticker] >= amount,
-                "Token balance too low"
+                "token balance too low"
             );
         }
         Order[] storage orders =
