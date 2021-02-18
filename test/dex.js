@@ -5,6 +5,11 @@ const Bat = artifacts.require("mocks/Bat.sol");
 const Rep = artifacts.require("mocks/Rep.sol");
 const Zrx = artifacts.require("mocks/Zrx.sol");
 
+const SIDE = {
+  BUY: 0,
+  SELL: 1,
+};
+
 // Import contract abstraction of the Decentralized Exchange
 const Dex = artifacts.require("Dex.sol");
 
@@ -112,5 +117,48 @@ contract("Dex", (accounts) => {
       dex.withdraw(web3.utils.toWei("1000"), DAI, { from: trader1 }),
       "Balance too low!"
     );
+  });
+
+  // Test createLimitOrder()---Happy Path
+  it("Should create limit order", async () => {
+    //Add 100 DAI to the smart contract
+    await dex.deposit(web3.utils.toWei("100"), DAI, { from: trader1 });
+
+    await dex.createLimitOrder(REP, web3.utils.toWei("10"), 10, SIDE.BUY, {
+      from: trader1,
+    });
+    // Inspect the orderbook and find our order
+    let buyOrders = await dex.getOrders(REP, SIDE.BUY);
+    let sellOrders = await dex.getOrders(REP, SIDE.SELL);
+    assert(buyOrders.length === 1);
+    assert(buyOrders[0].trader === trader1);
+    assert(buyOrders[0].ticker === web3.utils.padRight(REP, 64));
+    assert(buyOrders[0].price === "10");
+    assert(buyOrders[0].amount === web3.utils.toWei("10"));
+    assert(sellOrders.length === 0);
+
+    await dex.deposit(web3.utils.toWei("200"), DAI, { from: trader2 });
+
+    await dex.createLimitOrder(REP, web3.utils.toWei("10"), 11, SIDE.BUY, {
+      from: trader2,
+    });
+    buyOrders = await dex.getOrders(REP, SIDE.BUY);
+    sellOrders = await dex.getOrders(REP, SIDE.SELL);
+    assert(buyOrders.length === 2);
+    assert(buyOrders[0].trader === trader2); //Higher price should appear first
+    assert(buyOrders[1].trader === trader1);
+    assert(sellOrders.length === 0);
+
+    await dex.createLimitOrder(REP, web3.utils.toWei("10"), 9, SIDE.BUY, {
+      from: trader2,
+    });
+    buyOrders = await dex.getOrders(REP, SIDE.BUY);
+    sellOrders = await dex.getOrders(REP, SIDE.SELL);
+    assert(buyOrders.length === 3);
+    assert(buyOrders[0].trader === trader2);
+    assert(buyOrders[1].trader === trader1);
+    assert(buyOrders[2].trader === trader2);
+    assert(buyOrders[2].price === "9");
+    assert(sellOrders.length === 0);
   });
 });
